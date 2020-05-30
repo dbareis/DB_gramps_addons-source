@@ -36,6 +36,7 @@ from gi.repository import Gtk
 from gi.repository import Gdk
 from gi.repository import Pango
 
+
 # ---------------------------------------------------------------
 # Gramps modules
 # ---------------------------------------------------------------
@@ -207,9 +208,9 @@ class SelectForm(object):
         # Create Tree View
         self.tree = Gtk.TreeView(self.tree_filter)
         self.tree.connect('button-press-event', self.__button_press)
+        self.tree.set_enable_tree_lines(True)
 
-        # Pack everything into a single column (otherwise only the first
-        # column would be indented according to its depth in the tree)
+        # Pack everything into a single column
         text_renderer = Gtk.CellRendererText()
         ccol = Gtk.TreeViewColumn("Source")
         ccol.pack_start(text_renderer, True)
@@ -556,7 +557,28 @@ class SelectForm(object):
         # pylint: disable=protected-access
         # pylint: disable=unused-argument
 
+        if event.type == Gdk.EventType.BUTTON_PRESS:
+            # Mouse single click
+            patht = self.tree.get_path_at_pos(int(event.x), int(event.y))
+            path = patht[0]
+            iter_ = self.model.get_iter(path)
+            source_handle = self.model.get_value(iter_, 0)
+            if not source_handle:
+                # Its a tree node
+                Text = self.model.get_value(iter_, self.COL_TEXT)
+                if  self.tree.row_expanded(path):
+                    action = "Collapsed"
+                    self.tree.collapse_row(path)
+                else:
+                    action = "Expanded "
+                    self.tree.expand_row(path, True)
+                _LOG.debug("MOUSE BUTTON PRESSED: %s path [%s] %s", action, path, Text)
+
+                # Want clicking on expander to work (drop click)!
+                return True
+
         if event.type == Gdk.EventType._2BUTTON_PRESS:
+            # Mouse double click
             model, iter_ = self.tree.get_selection().get_selected()
             if iter_:
                 source_handle = model.get_value(iter_, 0)
