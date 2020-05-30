@@ -601,7 +601,12 @@ class SelectForm(object):
                     _LOG.debug('Collapse tree button clicked')
                     self.tree.collapse_all()
                     continue
+                if response == Gtk.ResponseType.DELETE_EVENT:
+                    _LOG.debug('Form selection dialog closed')
+                    self.top.destroy()
+                    break
                 if response == Gtk.ResponseType.CANCEL:
+                    _LOG.debug('Form selection cancelled')
                     self.top.destroy()
                     break
                 if response == Gtk.ResponseType.OK:
@@ -609,7 +614,9 @@ class SelectForm(object):
                     source_handle = None
                     if iter_:
                         source_handle = model.get_value(iter_, 0)
-                    if not source_handle:
+                    if source_handle:
+                        _LOG.debug('Opening selected form')
+                    else:
                         # No selection to accept (or was on tree node)
                         sound_bell()
                         continue

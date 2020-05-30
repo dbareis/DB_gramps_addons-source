@@ -71,7 +71,7 @@ def sound_bell():
     Gdk.beep()
 
 
-def iniget(configobj, what, default=''):
+def iniget(configobj, what, default='', loginfo=True):
     """
     Will get a value from the INI file
     :param configobj: CONFIG
@@ -82,11 +82,15 @@ def iniget(configobj, what, default=''):
     """
     try:
         value = configobj.get(what)
+        if  loginfo:
+            _LOG.info('iniget(): ini "%s" contained the value: "%s"' +
+                      ' (default was "%s")',
+                      what, str(value), str(default))
     except:  # pylint: disable=bare-except
         value = default
         oops = ('iniget(): ini "%s" doesn\'t exist (returning default' +
-                ' of %s).  Registering the key in the ini file!')
-        _LOG.warning(oops % (what, default))  # Don't know object type, pylint: disable=logging-not-lazy
+                ' of "%s").  Registering the key in the ini file!')
+        _LOG.warning(oops, what, str(default))
         try:
             configobj.register(what, default)
             configobj.save()
@@ -109,7 +113,7 @@ def inigeti(configobj, what, default=0):
     """
     # It is lazy: pylint: disable=logging-not-lazy
 
-    value = iniget(configobj, what, default)
+    value = iniget(configobj, what, default, loginfo=False)
     try:
         numeric = int(value)
         _LOG.info('inigeti(): ini "%s" contained the integer: %d' +
