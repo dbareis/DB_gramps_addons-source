@@ -134,6 +134,7 @@ class SelectForm(object):
     # -----------------------------------------------------------------
     expand_subtree = True    # Needs more work use 'False'
     hover_expand = False
+    tree_lines = False
 
     def __init__(self, dbstate, uistate, track):
         # pylint: disable=unused-argument
@@ -164,13 +165,16 @@ class SelectForm(object):
         _LOG.debug('Select Form Dialog: %s' % title)
         top = Gtk.Dialog(title)
         self.hover_expand = inigetb(CONFIG, 'selectform.hover-expand', False)
+        self.tree_lines = inigetb(CONFIG, 'selectform.tree_lines', False)
         dwidth = inigeti(CONFIG, 'selectform.form-width', 350)
         dheight = inigeti(CONFIG, 'selectform.form-height', 650)
         posx = inigeti(CONFIG, 'selectform.form-horiz-position', -1)
         posy = inigeti(CONFIG, 'selectform.form-vert-position', -1)
-        _LOG.debug('Setting the default size & position of the dialog'
-                   ' (W=%s, H=%s @ X=%s, Y=%s): HoverExpand=%s',
-                   dwidth, dheight, posx, posy, self.hover_expand)
+        _LOG.info('Setting the default size & position of the ' +
+                  'dialog (W=%s, H=%s @ X=%s, Y=%s): ' +
+                  'HoverExpand=%s, TreeLines=%s',
+                  dwidth, dheight, posx, posy,
+                  self.hover_expand, self.tree_lines)
         top.set_default_size(dwidth, dheight)
         top.resize(dwidth, dheight)
         if  posx != -1 and posy != -1:
@@ -208,7 +212,7 @@ class SelectForm(object):
         # Create Tree View
         self.tree = Gtk.TreeView(self.tree_filter)
         self.tree.connect('button-press-event', self.__button_press)
-        self.tree.set_enable_tree_lines(True)
+        self.tree.set_enable_tree_lines(self.tree_lines)
 
         # Pack everything into a single column
         text_renderer = Gtk.CellRendererText()
@@ -560,19 +564,32 @@ class SelectForm(object):
         if event.type == Gdk.EventType.BUTTON_PRESS:
             # Mouse single click
             patht = self.tree.get_path_at_pos(int(event.x), int(event.y))
-            path = patht[0]
-            iter_ = self.model.get_iter(path)
-            source_handle = self.model.get_value(iter_, 0)
+            tpath = patht[0]
+            mpath = self.tree_filter.convert_path_to_child_path(tpath)
+            miter = self.model.get_iter(mpath)
+            source_handle = self.model.get_value(miter, self.COL_HANDLE)
             if not source_handle:
                 # Its a tree node
-                Text = self.model.get_value(iter_, self.COL_TEXT)
-                if  self.tree.row_expanded(path):
-                    action = "Collapsed"
-                    self.tree.collapse_row(path)
+                mousebtn = event.button
+                if mousebtn == 1:
+                    expandall = False
+                    exptext = "row"
                 else:
-                    action = "Expanded "
-                    self.tree.expand_row(path, True)
-                _LOG.debug("MOUSE BUTTON PRESSED: %s path [%s] %s", action, path, Text)
+                    # If not mouse button 1 (left) then swap mode
+                    expandall = True
+                    exptext = "all child rows"
+
+                # Expand or collapse it
+                text = self.model.get_value(miter, self.COL_TEXT)
+                if  self.tree.row_expanded(tpath):
+                    action = "collapsed row"
+                    self.tree.collapse_row(tpath)
+                else:
+                    action = "expanded %s" % exptext
+                    self.tree.expand_row(tpath, expandall)
+                _LOG.debug('TREE NODE CLICKED [BTN:%d]: ' +
+                           '%s [%s->%s, %s]',
+                           mousebtn, text, tpath, mpath, action)
 
                 # Want clicking on expander to work (drop click)!
                 return True
@@ -581,7 +598,7 @@ class SelectForm(object):
             # Mouse double click
             model, iter_ = self.tree.get_selection().get_selected()
             if iter_:
-                source_handle = model.get_value(iter_, 0)
+                source_handle = model.get_value(iter_, self.COL_HANDLE)
                 if source_handle:
                     self.top.response(Gtk.ResponseType.OK)
 
@@ -635,7 +652,7 @@ class SelectForm(object):
                     model, iter_ = self.tree.get_selection().get_selected()
                     source_handle = None
                     if iter_:
-                        source_handle = model.get_value(iter_, 0)
+                        source_handle = model.get_value(iter_, self.COL_HANDLE)
                     if source_handle:
                         _LOG.debug('Opening selected form')
                     else:
